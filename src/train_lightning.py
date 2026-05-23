@@ -12,6 +12,10 @@ from src.metrics import (
     count_rmse,
     pixelwise_mae,
     pixelwise_rmse,
+    spatial_count,
+    empty_region_fp_mass,
+    dense_region_mse,
+    game,
 )
 from src.models import get_model
 from src.utils import plot_dec_steps_batch, resize_density_map_count_preserving
@@ -95,6 +99,33 @@ class LitDensityEstimator(pl.LightningModule):
         self.log(f'{name}/count_mae', count_mae_val, on_epoch=True)
         self.log(f'{name}/count_mse', count_mse_val, on_epoch=True)
         self.log(f'{name}/count_rmse', count_rmse_val, on_epoch=True)
+
+        # Log empty-region FP mass and dense-region MSE
+        empty_fp = empty_region_fp_mass(pred, gt)
+        dense_mse = dense_region_mse(pred, gt)
+        self.log(f'{name}/empty_region_fp_mass', empty_fp, on_epoch=True)
+        self.log(f'{name}/dense_region_mse', dense_mse, on_epoch=True)
+
+        # Log GAME metrics
+        self.log(f'{name}/game_1', game(pred, gt, 1), on_epoch=True)
+        self.log(f'{name}/game_2', game(pred, gt, 2), on_epoch=True)
+        self.log(f'{name}/game_3', game(pred, gt, 3), on_epoch=True)
+
+        # Stratified errors
+        c_gt = spatial_count(gt)
+        c_pred = spatial_count(pred)
+        errors = torch.abs(c_pred - c_gt)
+
+        low_mask = c_gt < 50
+        med_mask = (c_gt >= 50) & (c_gt <= 200)
+        high_mask = c_gt > 200
+
+        if low_mask.any():
+            self.log(f'{name}/count_mae_low', errors[low_mask].mean(), on_epoch=True, batch_size=low_mask.sum().item())
+        if med_mask.any():
+            self.log(f'{name}/count_mae_medium', errors[med_mask].mean(), on_epoch=True, batch_size=med_mask.sum().item())
+        if high_mask.any():
+            self.log(f'{name}/count_mae_high', errors[high_mask].mean(), on_epoch=True, batch_size=high_mask.sum().item())
 
         # Log images to W&B for the first batch only
         if self.log_images and batch_idx == 0 and isinstance(self.logger, pl_loggers.WandbLogger):

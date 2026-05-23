@@ -20,7 +20,10 @@ This repository contains a PyTorch/PyTorch Lightning project for crowd counting 
 - The dataset interface targets ShanghaiTech Part A/B, UCF-QNRF, NWPU, and JHU-style point annotation datasets.
 - The primary model families are pretrained ResNet50 and VGG19-BN encoders adapted into U-Net-like encoder-decoder networks.
 - The benchmark can split depth/receptive-field, output-resolution, and skip-placement ablations instead of changing them together.
-- The code computes count MAE/RMSE and pixelwise MAE/RMSE.
+- Evaluation includes rigorous quantitative metrics replacing narrative heatmap interpretations:
+  - **Density-Stratified Errors**: Errors are stratified by density regime (low, medium, high) to account for scene statistics differences.
+  - **Empty-Region False-Positive Mass**: Measures hallucinations in zero-density patches to quantitatively test models (e.g., ResNet) on low-density scenes.
+  - **Dense-Region MSE & GAME**: Measures patchwise error around annotations and Grid Average Mean Absolute Error to quantitatively test peak preservation (e.g., VGG) on dense subsets.
 - Baselines include a mean-count density predictor and an all-zero density predictor.
 
 Important details:
