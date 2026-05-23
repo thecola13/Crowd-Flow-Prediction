@@ -14,3 +14,4 @@ wandb
 
 .venv/
 latex/
+models/

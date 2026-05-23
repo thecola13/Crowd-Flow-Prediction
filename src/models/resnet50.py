@@ -16,12 +16,20 @@ class ResNetUNet(nn.Module):
         depth: int = 5,
         custom_head: bool = False,
         pretrained: bool = True,
+        output_reduction: int = 2,
         **kwargs,
     ):
         super().__init__()
         assert 1 <= depth <= 5, "depth must be between 1 and 5"
+        self.reduction_levels = [2, 4, 8, 16, 32][:depth]
+        if output_reduction not in self.reduction_levels:
+            raise ValueError(
+                f"output_reduction must be one of {self.reduction_levels} "
+                f"for ResNet depth={depth}"
+            )
         self.depth = depth
         self.custom_head = custom_head
+        self.output_reduction = output_reduction
 
         weights = models.ResNet50_Weights.IMAGENET1K_V1 if pretrained else None
         resnet = models.resnet50(weights=weights)
@@ -35,20 +43,22 @@ class ResNetUNet(nn.Module):
 
         # Channel sizes for each encoder output
         self.channels = [64, 256, 512, 1024, 2048] # [64, 256, 512, 1024, 2048]
+        self.target_index = self.reduction_levels.index(output_reduction)
 
-        # Build decoder: exactly (depth-1) Ups, matching skips
+        # Build decoder to the requested output reduction, matching skips.
         self.ups = nn.ModuleList()
-        for j in range(depth - 1, 0, -1):
+        for j in range(depth - 1, self.target_index, -1):
             in_ch = self.channels[j]
             skip_ch = self.channels[j - 1]
             self.ups.append(Up(in_ch + skip_ch, skip_ch))
 
         # Output head
+        head_channels = self.channels[self.target_index]
         if custom_head:
-            self.outc = CustomOutConv(self.channels[0], **kwargs)
+            self.outc = CustomOutConv(head_channels, **kwargs)
         else:
             self.outc = nn.Sequential(
-                nn.Conv2d(self.channels[0], 1, kernel_size=1),
+                nn.Conv2d(head_channels, 1, kernel_size=1),
                 nn.ReLU(inplace=True),
             )
 
@@ -67,7 +77,7 @@ class ResNetUNet(nn.Module):
         intermediates = []
 
         # Decoder path: (depth-1) ups, skipping conv1
-        skips = features[:-1]
+        skips = features[self.target_index : -1]
         for up, skip in zip(self.ups, reversed(skips)):
             x_dec = up(x_dec, skip) # [B,skip_ch,H/2^j,W/2^j] 
             if return_intermediates:

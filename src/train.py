@@ -6,6 +6,9 @@ from src.benchmark import (
     OptimizationConfig,
     TrainerConfig,
     make_experiment_grid,
+    make_output_resolution_ablation,
+    make_receptive_field_ablation,
+    make_skip_placement_ablation,
     run_benchmark,
 )
 
@@ -18,8 +21,15 @@ def parse_csv(value: str, cast=str):
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the unified crowd-count benchmark.")
+    parser.add_argument(
+        "--ablation",
+        choices=("grid", "receptive_field", "output_resolution", "skip_placement"),
+        default="grid",
+    )
     parser.add_argument("--architectures", default="resnet50_ae,vgg19_ae")
     parser.add_argument("--depths", default="2,3,4")
+    parser.add_argument("--output-reductions", default="2")
+    parser.add_argument("--skip-placements", default="after_pool")
     parser.add_argument("--splits", default="A,B")
     parser.add_argument("--data-folder", default="./data/ShanghaiTech")
     parser.add_argument("--batch-size", type=int, default=8)
@@ -41,12 +51,11 @@ def main():
 
     architectures = parse_csv(args.architectures) or ("resnet50_ae", "vgg19_ae")
     depths = parse_csv(args.depths, int) or (2, 3, 4)
+    output_reductions = parse_csv(args.output_reductions, int) or (2,)
+    skip_placements = parse_csv(args.skip_placements) or ("after_pool",)
     splits = parse_csv(args.splits) or ("A", "B")
 
-    configs = make_experiment_grid(
-        architectures=architectures,
-        depths=depths,
-        splits=splits,
+    shared = dict(
         data=DataConfig(
             data_folder=args.data_folder,
             batch_size=args.batch_size,
@@ -68,6 +77,40 @@ def main():
             log_images=not args.no_image_logs,
         ),
     )
+
+    if args.ablation == "receptive_field":
+        configs = make_receptive_field_ablation(
+            architecture=architectures[0],
+            depths=depths,
+            output_reduction=output_reductions[0],
+            split=splits[0],
+            **shared,
+        )
+    elif args.ablation == "output_resolution":
+        configs = make_output_resolution_ablation(
+            architecture=architectures[0],
+            depth=depths[0],
+            output_reductions=output_reductions,
+            split=splits[0],
+            **shared,
+        )
+    elif args.ablation == "skip_placement":
+        configs = make_skip_placement_ablation(
+            architecture=architectures[0],
+            depth=depths[0],
+            output_reduction=output_reductions[0],
+            split=splits[0],
+            **shared,
+        )
+    else:
+        configs = make_experiment_grid(
+            architectures=architectures,
+            depths=depths,
+            output_reductions=output_reductions,
+            skip_placements=skip_placements,
+            splits=splits,
+            **shared,
+        )
 
     results = run_benchmark(configs)
     failed = [result for result in results if result["status"] != "ok"]

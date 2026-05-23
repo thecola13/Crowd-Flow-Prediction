@@ -14,7 +14,7 @@ class DataConfig:
     batch_size: int = 8
     num_workers: int = 4
     input_size: tuple[int, int] = (384, 384)
-    density_map_size: tuple[int, int] = (192, 192)
+    density_map_size: tuple[int, int] | None = None
 
 
 @dataclass(frozen=True)
@@ -50,6 +50,8 @@ class LoggingConfig:
 class ModelSpec:
     architecture: str
     depth: int = 4
+    output_reduction: int = 2
+    skip_placement: str = "after_pool"
     label: str | None = None
     pretrained: bool = True
     freeze_encoder: bool = False
@@ -57,7 +59,11 @@ class ModelSpec:
 
     @property
     def name(self) -> str:
-        return self.label or f"{self.architecture}_depth{self.depth}"
+        return (
+            self.label
+            or f"{self.architecture}_depth{self.depth}"
+            f"_out{self.output_reduction}_skip-{self.skip_placement}"
+        )
 
 
 @dataclass(frozen=True)
@@ -77,6 +83,8 @@ class ExperimentConfig:
 def make_experiment_grid(
     architectures: Iterable[str] = ("resnet50_ae", "vgg19_ae"),
     depths: Iterable[int] = (2, 3, 4),
+    output_reductions: Iterable[int] = (2,),
+    skip_placements: Iterable[str] = ("after_pool",),
     splits: Iterable[str] = ("A", "B"),
     data: DataConfig | None = None,
     optimization: OptimizationConfig | None = None,
@@ -90,7 +98,12 @@ def make_experiment_grid(
 
     return [
         ExperimentConfig(
-            model=ModelSpec(architecture=architecture, depth=depth),
+            model=ModelSpec(
+                architecture=architecture,
+                depth=depth,
+                output_reduction=output_reduction,
+                skip_placement=skip_placement,
+            ),
             split=split,
             data=shared_data,
             optimization=shared_optimization,
@@ -100,13 +113,71 @@ def make_experiment_grid(
         for split in splits
         for architecture in architectures
         for depth in depths
+        for output_reduction in output_reductions
+        for skip_placement in skip_placements
     ]
+
+
+def make_receptive_field_ablation(
+    architecture: str = "resnet50_ae",
+    depths: Iterable[int] = (2, 3, 4),
+    output_reduction: int = 2,
+    split: str = "A",
+    **shared,
+) -> list[ExperimentConfig]:
+    return make_experiment_grid(
+        architectures=(architecture,),
+        depths=depths,
+        output_reductions=(output_reduction,),
+        skip_placements=("after_pool",),
+        splits=(split,),
+        **shared,
+    )
+
+
+def make_output_resolution_ablation(
+    architecture: str = "vgg19_ae",
+    depth: int = 4,
+    output_reductions: Iterable[int] = (1, 2, 4),
+    split: str = "A",
+    **shared,
+) -> list[ExperimentConfig]:
+    return make_experiment_grid(
+        architectures=(architecture,),
+        depths=(depth,),
+        output_reductions=output_reductions,
+        skip_placements=("after_pool",),
+        splits=(split,),
+        **shared,
+    )
+
+
+def make_skip_placement_ablation(
+    architecture: str = "unet",
+    depth: int = 4,
+    output_reduction: int = 2,
+    split: str = "A",
+    **shared,
+) -> list[ExperimentConfig]:
+    return make_experiment_grid(
+        architectures=(architecture,),
+        depths=(depth,),
+        output_reductions=(output_reduction,),
+        skip_placements=("before_pool", "after_pool"),
+        splits=(split,),
+        **shared,
+    )
 
 
 def _make_data_module(config: ExperimentConfig, device):
     from src.data_loader import ShanghaiTechDataModule
 
     data = config.data
+    density_map_size = data.density_map_size
+    if density_map_size is None:
+        reduction = config.model.output_reduction
+        density_map_size = tuple(dim // reduction for dim in data.input_size)
+
     return ShanghaiTechDataModule(
         data_folder=data.data_folder,
         part=f"part_{config.split}",
@@ -117,7 +188,7 @@ def _make_data_module(config: ExperimentConfig, device):
         batch_size=data.batch_size,
         num_workers=data.num_workers,
         input_size=data.input_size,
-        density_map_size=data.density_map_size,
+        density_map_size=density_map_size,
         device=device,
     )
 
@@ -134,6 +205,8 @@ def _make_logger(config: ExperimentConfig):
         tags=[
             f"model_{config.model.architecture}",
             f"depth_{config.model.depth}",
+            f"out_{config.model.output_reduction}",
+            f"skip_{config.model.skip_placement}",
             f"split_{config.split}",
         ],
     )
@@ -182,6 +255,8 @@ def run_experiment(config: ExperimentConfig, device=None) -> dict:
     model = LitDensityEstimator(
         model_name=config.model.architecture,
         depth=config.model.depth,
+        output_reduction=config.model.output_reduction,
+        skip_placement=config.model.skip_placement,
         lr=config.optimization.lr,
         weight_decay=config.optimization.weight_decay,
         optimizer_name=config.optimization.optimizer_name,

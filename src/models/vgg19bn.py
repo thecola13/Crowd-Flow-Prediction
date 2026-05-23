@@ -71,12 +71,20 @@ class VGGUNet(nn.Module):
         depth: int = 5,
         custom_head: bool = False,
         pretrained: bool = True,
+        output_reduction: int = 2,
         **kwargs,
     ):
         super().__init__()
         assert 1 <= depth <= 5, "depth must be between 1 and 5"
+        self.reduction_levels = [2**i for i in range(depth + 1)]
+        if output_reduction not in self.reduction_levels:
+            raise ValueError(
+                f"output_reduction must be one of {self.reduction_levels} "
+                f"for VGG depth={depth}"
+            )
         self.depth = depth
         self.custom_head = custom_head
+        self.output_reduction = output_reduction
 
         weights = models.VGG19_BN_Weights.IMAGENET1K_V1 if pretrained else None
         vgg = models.vgg19_bn(weights=weights)
@@ -98,21 +106,23 @@ class VGGUNet(nn.Module):
 
         # Record output channels of each encoder block
         self.channels = [block[0].out_channels for block in self.encoder_conv_blocks]
+        self.target_index = self.reduction_levels.index(output_reduction)
 
-        # Build decoder: exactly (depth-1) Ups to restore to H/2, with correct skip channels
+        # Build decoder to the requested output reduction.
         self.ups = nn.ModuleList()
-        for j in range(depth - 1, 0, -1):
+        current_ch = self.channels[-1]
+        for j in range(depth - 1, self.target_index - 1, -1):
             ch = self.channels[j]
-            out_ch = self.channels[j - 1]
-            # merge bottom or previous up output (ch) with skip feature (ch)
-            self.ups.append(Up(ch * 2, out_ch))
+            out_ch = self.channels[max(j - 1, 0)]
+            self.ups.append(Up(current_ch + ch, out_ch))
+            current_ch = out_ch
 
         # Output head
         if custom_head:
-            self.outc = CustomOutConv(self.channels[0], **kwargs)
+            self.outc = CustomOutConv(current_ch, **kwargs)
         else:
             self.outc = nn.Sequential(
-                nn.Conv2d(self.channels[0], 1, kernel_size=1),
+                nn.Conv2d(current_ch, 1, kernel_size=1),
                 nn.ReLU(inplace=True),
             )
 
@@ -128,8 +138,7 @@ class VGGUNet(nn.Module):
         x_dec = x
         intermediates = []
 
-        # Decoder: (depth-1) ups, skipping conv2..conv_depth
-        skip_feats = x_enc[1:]
+        skip_feats = x_enc[self.target_index:]
         for up, skip in zip(self.ups, reversed(skip_feats)):
             x_dec = up(x_dec, skip)
             if return_intermediates:
