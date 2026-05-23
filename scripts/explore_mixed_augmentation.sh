@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
 set -e
 
+# Determine the python executable to use
+if [ -f "./.venv/bin/python" ]; then
+    PYTHON_EXE="./.venv/bin/python"
+else
+    PYTHON_EXE="python"
+fi
+
 echo "Training on UCF-QNRF with Advanced Mixed Augmentation"
 # Added an optimized learning rate of 2e-4, suitable for learning from heavily augmented data
-python -m src.train \
+$PYTHON_EXE -m src.train \
   --dataset qnrf \
   --data-folder ./data/UCF-QNRF \
   --architectures vgg19_ae \
@@ -21,7 +28,7 @@ python -m src.train \
   --max-epochs 250
 
 echo "Training on ShanghaiTech Part A with Advanced Mixed Augmentation"
-python -m src.train \
+$PYTHON_EXE -m src.train \
   --dataset sha \
   --data-folder ./data/ShanghaiTech \
   --architectures vgg19_ae \

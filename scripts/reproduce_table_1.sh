@@ -4,8 +4,15 @@ set -e
 # Reproduce the full benchmark grid presented in Table 1
 # This evaluates VGG19 and ResNet50 at Depths 2, 3, and 4 on ShanghaiTech Parts A and B.
 
+# Determine the python executable to use
+if [ -f "./.venv/bin/python" ]; then
+    PYTHON_EXE="./.venv/bin/python"
+else
+    PYTHON_EXE="python"
+fi
+
 echo "Reproducing Table 1: Training and Evaluation Grid on ShanghaiTech"
-python -m src.train \
+$PYTHON_EXE -m src.train \
     --architectures vgg19_ae,resnet50_ae \
     --depths 2,3,4 \
     --splits A,B \
@@ -13,7 +20,7 @@ python -m src.train \
     --dataset sha
 
 echo "Reproducing Table 1: Training and Evaluation Grid on UCF-QNRF"
-python -m src.train \
+$PYTHON_EXE -m src.train \
     --architectures vgg19_ae,resnet50_ae \
     --depths 2,3,4 \
     --splits qnrf \

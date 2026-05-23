@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
 set -e
 
+# Determine the python executable to use
+if [ -f "./.venv/bin/python" ]; then
+    PYTHON_EXE="./.venv/bin/python"
+else
+    PYTHON_EXE="python"
+fi
+
 echo "Running Crop Augmentation Diagnosis on UCF-QNRF"
-python -m src.analyze_augmentation_distribution \
+$PYTHON_EXE -m src.analyze_augmentation_distribution \
   --data-folder ./data/UCF-QNRF \
   --dataset qnrf \
   --split train \
@@ -13,7 +20,7 @@ python -m src.analyze_augmentation_distribution \
   --plot-dir ./outputs/augmentation_distribution_ucf_qnrf_train_plots
 
 echo "Running Crop Augmentation Diagnosis on ShanghaiTech Part A"
-python -m src.analyze_augmentation_distribution \
+$PYTHON_EXE -m src.analyze_augmentation_distribution \
   --data-folder ./data/ShanghaiTech \
   --dataset sha \
   --split train \

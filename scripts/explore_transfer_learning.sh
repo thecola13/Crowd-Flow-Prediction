@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
 set -e
 
+# Determine the python executable to use
+if [ -f "./.venv/bin/python" ]; then
+    PYTHON_EXE="./.venv/bin/python"
+else
+    PYTHON_EXE="python"
+fi
+
 echo "Exploring Transfer Learning Generalization"
 echo "1. Training on ShanghaiTech Part A, Evaluating on UCF-QNRF"
 # Lowering the learning rate slightly from the default (5e-4) to 1e-4 
 # for more stable convergence when preparing for cross-dataset transfer evaluation.
-python -m src.train \
+$PYTHON_EXE -m src.train \
     --dataset sha \
     --data-folder ./data/ShanghaiTech \
     --eval-dataset qnrf \
@@ -17,7 +24,7 @@ python -m src.train \
     --max-epochs 200
 
 echo "2. Training on UCF-QNRF, Evaluating on ShanghaiTech Part A"
-python -m src.train \
+$PYTHON_EXE -m src.train \
     --dataset qnrf \
     --data-folder ./data/UCF-QNRF \
     --eval-dataset sha \
