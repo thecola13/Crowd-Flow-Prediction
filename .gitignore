@@ -12,4 +12,5 @@ data/
 wandb
 ./models
 
+.venv/
 latex/

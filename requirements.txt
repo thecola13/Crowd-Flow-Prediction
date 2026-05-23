@@ -6,3 +6,5 @@ pillow
 matplotlib
 pandas
 jupyter
+pytorch-lightning
+wandb

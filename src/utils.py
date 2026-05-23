@@ -1,8 +1,9 @@
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from scipy.ndimage import gaussian_filter
+
 
 
 def get_device():
@@ -46,12 +47,57 @@ def create_density_map(centroids:np.ndarray, img_size: tuple, sigma: float = 5.0
     return density_map
 
 
+def resize_density_map_count_preserving(
+    density_map: torch.Tensor,
+    size: tuple[int, int],
+    mode: str = "bilinear",
+) -> torch.Tensor:
+    """
+    Resize a density map while preserving its spatial sum.
+
+    Interpolation changes per-pixel density values. For density maps whose sum
+    represents a count, scale by the old/new area ratio after interpolation.
+    Accepts tensors shaped (H, W), (C, H, W), or (B, C, H, W).
+    """
+    original_ndim = density_map.ndim
+    if original_ndim == 2:
+        x = density_map.unsqueeze(0).unsqueeze(0)
+    elif original_ndim == 3:
+        x = density_map.unsqueeze(0)
+    elif original_ndim == 4:
+        x = density_map
+    else:
+        raise ValueError(
+            "density_map must have shape (H, W), (C, H, W), or (B, C, H, W)"
+        )
+
+    align_corners = (
+        False if mode in {"linear", "bilinear", "bicubic", "trilinear"} else None
+    )
+    resized = F.interpolate(x, size=size, mode=mode, align_corners=align_corners)
+    original_sum = x.sum(dim=(-2, -1), keepdim=True)
+    resized_sum = resized.sum(dim=(-2, -1), keepdim=True)
+    resized = torch.where(
+        resized_sum != 0,
+        resized * (original_sum / resized_sum),
+        resized,
+    )
+
+    if original_ndim == 2:
+        return resized.squeeze(0).squeeze(0)
+    if original_ndim == 3:
+        return resized.squeeze(0)
+    return resized
+
+
 def show_samples_from_loaders(data_module, sigma=5):
     """
     Show samples from train, val, and test loaders for every element in the batch.
     Display the image and its density map side by side in the same figure.
     Arrange rows as batch elements and columns as loaders.
     """
+    import matplotlib.pyplot as plt
+
     loaders = {
         "train": data_module.train_dataloader(),
         "val": data_module.val_dataloader(),
@@ -104,6 +150,8 @@ def plot_density_predictions(model, dataloader, device, num_samples=5, figsize=(
     Iterates over a dataloader and displays input images, ground-truth density maps,
     and model predictions for each sample. Each density map has its sum annotated.
     """
+    import matplotlib.pyplot as plt
+
     model.eval()
     shown = 0
 
@@ -178,6 +226,8 @@ def plot_all_decoder_predictions(
     Plots input image, ground-truth density, and the decoder predictions
     at each upsampling stage (for just one image).
     """
+    import matplotlib.pyplot as plt
+
     model.eval()
     with torch.no_grad():
         imgs, gt_maps = next(iter(dataloader))
@@ -266,6 +316,8 @@ def plot_dec_steps_batch(imgs, gt_maps, preds_list, figsize_per_pred=(4, 4)):
             each Tensor shape (B, C, h, w) or (B,1,h,w).
         figsize_per_pred (tuple): width, height per subplot.
     """
+    import matplotlib.pyplot as plt
+
     B = imgs.shape[0]
     S = len(preds_list)
     nrows = 2 + S  # input + gt + each decoder step
