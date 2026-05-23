@@ -74,15 +74,12 @@ def _normalise_dataset_name(dataset_name: str) -> str:
         "qnrf": "qnrf",
         "ucf_qnrf": "qnrf",
         "ucf-qnrf": "qnrf",
-        "nwpu": "nwpu",
-        "jhu": "jhu",
-        "jhu_crowd": "jhu",
     }
     key = dataset_name.lower()
     if key not in aliases:
         raise ValueError(
             f"Unsupported dataset '{dataset_name}'. "
-            "Supported values include sha, shb, qnrf, nwpu, and jhu."
+            "Supported values include sha, shb, and qnrf."
         )
     return aliases[key]
 
@@ -297,8 +294,6 @@ class CrowdCountingDataset(Dataset):
     Supported layout examples:
       data/ShanghaiTech/part_A/train_data/{images,ground_truth}
       data/UCF-QNRF/train/{images,ground_truth}
-      data/NWPU/train/{images,gt}
-      data/JHU/train/{images,ground_truth}
     """
 
     def __init__(
