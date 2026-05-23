@@ -16,3 +16,4 @@ outputs/
 .venv/
 latex/
 models/
+results/

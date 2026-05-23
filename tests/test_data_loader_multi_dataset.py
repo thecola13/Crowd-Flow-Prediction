@@ -117,6 +117,39 @@ class MultiDatasetLoaderTests(unittest.TestCase):
             self.assertEqual(len(data_module.train_dataset), 4)
             self.assertEqual(len(data_module.val_dataset), 1)
 
+    def test_shanghaitech_layout_with_nested_image_info_mat(self):
+        import numpy as np
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "ShanghaiTech"
+            write_image(root / "part_A" / "train_data" / "images" / "IMG_1.jpg")
+            
+            struct_dt = np.dtype([("location", object), ("number", object)])
+            struct_arr = np.empty((1, 1), dtype=struct_dt)
+            struct_arr[0, 0] = ([[2.0, 3.0], [4.0, 5.0]], 2)
+            
+            image_info = np.empty((1, 1), dtype=object)
+            image_info[0, 0] = struct_arr
+            
+            mat_path = root / "part_A" / "train_data" / "ground_truth" / "GT_IMG_1.mat"
+            mat_path.parent.mkdir(parents=True, exist_ok=True)
+            scipy.io.savemat(
+                mat_path,
+                {"image_info": image_info},
+            )
+            
+            dataset = CrowdCountingDataset(
+                root=str(root),
+                dataset_name="shanghaitech_a",
+                split="train",
+                input_size=(8, 8),
+                density_map_size=(8, 8),
+                sigma=0,
+            )
+            _, density = dataset[0]
+            
+            self.assertEqual(tuple(density.shape), (1, 8, 8))
+            self.assertAlmostEqual(density.sum().item(), 2.0)
+
 
 if __name__ == "__main__":
     unittest.main()

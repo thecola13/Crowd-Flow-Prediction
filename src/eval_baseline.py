@@ -124,31 +124,45 @@ if __name__ == "__main__":
     # Initialize device
     device = get_device()
 
-    # Load the data
-    data_module = CrowdCountingDataModule(
-        data_folder="./data/ShanghaiTech",
-        dataset_name="sha",
-        validation_split=0.1,
-        sigma=5,
-        return_count=False,
-        batch_size=8,
-        num_workers=4,
-        input_size=(384, 384),
-        density_map_size=(192, 192),
-        device=device,
-    )
-    data_module.setup()
+    eval_runs = [
+        ("ShanghaiTech Part A", "./data/ShanghaiTech", "sha"),
+        ("ShanghaiTech Part B", "./data/ShanghaiTech", "shb"),
+        ("UCF-QNRF", "./data/UCF-QNRF", "qnrf"),
+    ]
 
-    # Get dataloaders
-    train_loader = data_module.train_dataloader()
-    val_loader = data_module.val_dataloader()
-    test_loader = data_module.test_dataloader()
-    n_pixels = 192 * 192
-    print("\n=== Baseline Results on TRAIN ===")
-    evaluate_baselines(train_loader, device, n_pixels)
+    for name, folder, ds_name in eval_runs:
+        print(f"\n==========================================")
+        print(f"Evaluating Baselines on {name}")
+        print(f"==========================================")
+        
+        try:
+            data_module = CrowdCountingDataModule(
+                data_folder=folder,
+                dataset_name=ds_name,
+                validation_split=0.1,
+                sigma=5,
+                return_count=False,
+                batch_size=8,
+                num_workers=4,
+                input_size=(384, 384),
+                density_map_size=(192, 192),
+                device=device,
+            )
+            data_module.setup()
 
-    print("\n=== Baseline Results on VALIDATION ===")
-    evaluate_baselines(val_loader, device, n_pixels)
+            # Get dataloaders
+            train_loader = data_module.train_dataloader()
+            val_loader = data_module.val_dataloader()
+            test_loader = data_module.test_dataloader()
+            n_pixels = 192 * 192
+            
+            print("\n=== Baseline Results on TRAIN ===")
+            evaluate_baselines(train_loader, device, n_pixels)
 
-    print("\n=== Baseline Results on TEST ===")
-    evaluate_baselines(test_loader, device, n_pixels)
+            print("\n=== Baseline Results on VALIDATION ===")
+            evaluate_baselines(val_loader, device, n_pixels)
+
+            print("\n=== Baseline Results on TEST ===")
+            evaluate_baselines(test_loader, device, n_pixels)
+        except Exception as e:
+            print(f"Failed to evaluate baselines for {name}: {e}")

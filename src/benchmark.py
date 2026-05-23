@@ -196,13 +196,23 @@ def _make_data_module(config: ExperimentConfig, device):
         reduction = config.model.output_reduction
         density_map_size = tuple(dim // reduction for dim in data.input_size)
 
+    dataset_name = data.dataset_name
+    if dataset_name in {"sha", "shb"}:
+        dataset_name = "sha" if config.split in {"A", "part_A"} else "shb"
+
+    eval_dataset_name = data.eval_dataset_name
+    if eval_dataset_name in {"sha", "shb"}:
+        eval_dataset_name = "sha" if config.split in {"A", "part_A"} else "shb"
+    elif eval_dataset_name is None:
+        eval_dataset_name = dataset_name
+
     return CrowdCountingDataModule(
         data_folder=data.data_folder,
-        dataset_name=data.dataset_name,
+        dataset_name=dataset_name,
         train_split=data.train_split,
         test_split=data.test_split,
         eval_data_folder=data.eval_data_folder,
-        eval_dataset_name=data.eval_dataset_name,
+        eval_dataset_name=eval_dataset_name,
         eval_split=data.eval_split,
         validation_split=data.validation_split,
         seed=data.seed,

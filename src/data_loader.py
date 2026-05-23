@@ -233,13 +233,27 @@ def _text_candidates(image_path: Path, gt_dir: Path) -> list[Path]:
 
 
 def _extract_points_from_object(value) -> Optional[np.ndarray]:
-    if isinstance(value, np.ndarray):
+    if isinstance(value, (np.ndarray, np.void)):
+        if value.dtype.names is not None:
+            # Handle structured array/void
+            for key in ("location", "points", "point", "locations", "annPoints"):
+                if key in value.dtype.names:
+                    points = _extract_points_from_object(value[key])
+                    if points is not None:
+                        return points
+            for name in value.dtype.names:
+                points = _extract_points_from_object(value[name])
+                if points is not None:
+                    return points
+            return None
+
         if value.dtype == object:
             for item in value.flat:
                 points = _extract_points_from_object(item)
                 if points is not None:
                     return points
             return None
+
         arr = np.asarray(value, dtype=np.float32)
         if arr.ndim == 2 and arr.shape[1] >= 2:
             return arr[:, :2]
