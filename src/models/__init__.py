@@ -6,7 +6,7 @@ import torch
 
 
 def get_model(
-    model_name, freeze_encoder=False, cpt=None, device=None, **kwargs
+    model_name, freeze_encoder=False, cpt=None, device=None, pretrained=True, **kwargs
 ):
     """
     Returns (model, trainable_params) for 'resnet50', 'vgg19_bn', or 'unet'.
@@ -18,14 +18,16 @@ def get_model(
     num_filters = kwargs.pop("num_filters", 32)
 
     # Instantiate backbone
-    if model_name == "resnet50":
+    if model_name in {"resnet50", "resnet50_ae"}:
         model = ResNetUNet(
             depth=depth,
+            pretrained=pretrained,
             **kwargs,
         )
-    elif model_name == "vgg19_bn":
+    elif model_name in {"vgg19_bn", "vgg19_ae"}:
         model = VGGUNet(
             depth=depth,
+            pretrained=pretrained,
             **kwargs,
         )
     elif model_name == "unet":

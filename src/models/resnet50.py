@@ -11,14 +11,20 @@ class ResNetUNet(nn.Module):
     - performs (depth-1) ups to return to H/2
     - custom_head: if True, use CustomOutConv; else a 1×1 conv + ReLU
     """
-    def __init__(self, depth: int = 5, custom_head: bool = False, **kwargs):
+    def __init__(
+        self,
+        depth: int = 5,
+        custom_head: bool = False,
+        pretrained: bool = True,
+        **kwargs,
+    ):
         super().__init__()
         assert 1 <= depth <= 5, "depth must be between 1 and 5"
         self.depth = depth
         self.custom_head = custom_head
 
-        # Load pretrained ResNet50
-        resnet = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V1)
+        weights = models.ResNet50_Weights.IMAGENET1K_V1 if pretrained else None
+        resnet = models.resnet50(weights=weights)
         # Encoder modules
         self.inc = nn.Sequential(resnet.conv1, resnet.bn1, resnet.relu)
         self.pool = resnet.maxpool

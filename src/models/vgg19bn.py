@@ -6,9 +6,10 @@ class VGG19BNBackbone(nn.Module):
     U-Net for density regression using VGG19_bn encoder.
     Outputs [B,1,H/2,W/2] given [B,3,H,W].
     """
-    def __init__(self):
+    def __init__(self, pretrained: bool = True):
         super().__init__()
-        vgg = models.vgg19_bn(weights=models.VGG19_BN_Weights.IMAGENET1K_V1)
+        weights = models.VGG19_BN_Weights.IMAGENET1K_V1 if pretrained else None
+        vgg = models.vgg19_bn(weights=weights)
         feats = list(vgg.features.children())
         # Encoder blocks + pools
         self.enc1, self.pool1 = nn.Sequential(*feats[0:6]), feats[6]
@@ -65,14 +66,20 @@ class VGGUNet(nn.Module):
     - performs (depth-1) ups to return to H/2, matching VGG19BNBackbone structure
     - custom_head: if True, use CustomOutConv; else a 1×1 conv + ReLU
     """
-    def __init__(self, depth: int = 5, custom_head: bool = False, **kwargs):
+    def __init__(
+        self,
+        depth: int = 5,
+        custom_head: bool = False,
+        pretrained: bool = True,
+        **kwargs,
+    ):
         super().__init__()
         assert 1 <= depth <= 5, "depth must be between 1 and 5"
         self.depth = depth
         self.custom_head = custom_head
 
-        # Load pretrained VGG19 with batch-norm
-        vgg = models.vgg19_bn(weights=models.VGG19_BN_Weights.IMAGENET1K_V1)
+        weights = models.VGG19_BN_Weights.IMAGENET1K_V1 if pretrained else None
+        vgg = models.vgg19_bn(weights=weights)
         feats = list(vgg.features)
 
         # Split into convolutional blocks and pool layers

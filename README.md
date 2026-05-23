@@ -10,9 +10,10 @@ The accompanying report in `latex/main.tex` studies how receptive field size aff
 2. Head coordinates are resized to the configured density-map resolution.
 3. `create_density_map` converts points into a density map by placing impulses at head locations and applying a Gaussian filter.
 4. `ShanghaiTechDataModule` creates train/validation/test dataloaders.
-5. `LitDensityEstimator` wraps the selected model in PyTorch Lightning, trains with MSE loss, and logs pixelwise and count metrics.
-6. `train.py` runs the experiment grid for ResNet50 and VGG19-BN models at depths 2, 3, and 4 on ShanghaiTech Parts A and B.
-7. `eval_baseline.py` evaluates mean-count and zero-density baselines.
+5. `LitDensityEstimator` wraps any registered density-estimation model in the same PyTorch Lightning training/evaluation logic.
+6. `benchmark.py` defines the shared dataset, optimization, trainer, logging, and model-grid configuration used for comparative experiments.
+7. `train.py` is a CLI entrypoint for the unified benchmark grid.
+8. `eval_baseline.py` evaluates mean-count and zero-density baselines.
 
 ## Alignment With The Report
 
@@ -30,7 +31,6 @@ Important differences and caveats:
 - The report describes geometry-adaptive Gaussian kernels, while `src/utils.py` currently uses a fixed Gaussian `sigma`.
 - The implemented ResNet/VGG models output half-resolution density maps when the input is `384x384` and the density target is `192x192`.
 - The README and requirements were previously minimal; setup and run instructions below reflect the code as it exists now.
-- The code imports `pytorch_lightning` and `wandb`, but these dependencies are not currently listed in `requirements.txt`.
 
 ## Repository Structure
 
@@ -46,6 +46,7 @@ Important differences and caveats:
 │   └── images/                    # architecture and result figures used by the report
 ├── src/
 │   ├── data_loader.py             # ShanghaiTech dataset and Lightning data module
+│   ├── benchmark.py               # unified benchmark harness and experiment grid
 │   ├── eval_baseline.py           # mean-count and zero-density baseline evaluation
 │   ├── metrics.py                 # pixelwise and count metrics
 │   ├── train.py                   # experiment runner
@@ -58,6 +59,7 @@ Important differences and caveats:
 │       ├── unet_comp.py           # reusable U-Net blocks
 │       └── vgg19bn.py             # VGG19-BN encoder-decoder model
 └── tests/
+    ├── test_benchmark_config.py   # benchmark grid/configuration tests
     └── test_evaluator.py          # synthetic evaluator and density-resize tests
 ```
 
@@ -110,6 +112,14 @@ Train the full experiment grid:
 ```bash
 python -m src.train
 ```
+
+Run a smaller controlled benchmark:
+
+```bash
+python -m src.train --architectures resnet50_ae,vgg19_ae --depths 4 --splits A --no-wandb
+```
+
+All model variants in this entrypoint share the same preprocessing, optimizer, scheduler, callbacks, output resizing, metrics, and checkpoint policy. The architecture aliases currently supported by the repo are `resnet50_ae`, `vgg19_ae`, and `unet`.
 
 The training script logs to Weights & Biases and writes checkpoints under `models/checkpoints/`.
 
