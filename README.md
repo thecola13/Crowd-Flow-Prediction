@@ -2,7 +2,6 @@
 
 This repository contains a PyTorch/PyTorch Lightning project for crowd counting through density-map estimation on standard crowd-counting datasets. The code trains encoder-decoder models that predict a single-channel density map from an RGB image; the predicted crowd count is obtained by summing the density map.
 
-The accompanying report in `latex/main.tex` studies how receptive field size affects density-map quality and count accuracy. It compares VGG19-BN and ResNet50 encoder variants at different depths on ShanghaiTech Part A and Part B.
 
 ## How The Code Works
 
@@ -15,22 +14,19 @@ The accompanying report in `latex/main.tex` studies how receptive field size aff
 7. `train.py` is a CLI entrypoint for the unified benchmark grid.
 8. `eval_baseline.py` evaluates mean-count and zero-density baselines.
 
-## Alignment With The Report
-
-The implementation is broadly aligned with the report:
+## Key Features
 
 - The main task is crowd counting via density-map estimation.
 - The dataset interface targets ShanghaiTech Part A/B, UCF-QNRF, NWPU, and JHU-style point annotation datasets.
 - The primary model families are pretrained ResNet50 and VGG19-BN encoders adapted into U-Net-like encoder-decoder networks.
-- The benchmark can now split depth/receptive-field, output-resolution, and skip-placement ablations instead of changing them together.
-- The code computes count MAE/RMSE and pixelwise MAE/RMSE; the report currently presents only count metrics while pixel-level evaluation is being revalidated.
+- The benchmark can split depth/receptive-field, output-resolution, and skip-placement ablations instead of changing them together.
+- The code computes count MAE/RMSE and pixelwise MAE/RMSE.
 - Baselines include a mean-count density predictor and an all-zero density predictor.
 
-Important differences and caveats:
+Important details:
 
-- The report describes geometry-adaptive Gaussian kernels, while `src/utils.py` currently uses a fixed Gaussian `sigma`.
+- `src/utils.py` currently uses a fixed Gaussian `sigma`.
 - The implemented ResNet/VGG models output half-resolution density maps when the input is `384x384` and the density target is `192x192`.
-- The README and requirements were previously minimal; setup and run instructions below reflect the code as it exists now.
 
 ## Repository Structure
 
@@ -43,10 +39,6 @@ Important differences and caveats:
 │   ├── UCF-QNRF/
 │   ├── NWPU/
 │   └── JHU/
-├── latex/
-│   ├── main.tex                   # project report
-│   ├── references.bib
-│   └── images/                    # architecture and result figures used by the report
 ├── src/
 │   ├── data_loader.py             # multi-dataset crowd-counting data module
 │   ├── benchmark.py               # unified benchmark harness and experiment grid
