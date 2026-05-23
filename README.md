@@ -37,14 +37,24 @@ Important details:
 .
 ├── README.md
 ├── requirements.txt
+├── scripts/                       # Reproducibility scripts
+│   ├── explore_ablations.sh
+│   ├── explore_augmentation_diagnosis.sh
+│   ├── explore_mixed_augmentation.sh
+│   ├── explore_transfer_learning.sh
+│   ├── prepare_datasets.sh
+│   ├── reproduce_baselines.sh
+│   ├── reproduce_table_1.sh
+│   └── run_metric_tests.sh
 ├── data/                          # expected local dataset roots, not committed
 │   ├── ShanghaiTech/
 │   ├── UCF-QNRF/
 │   ├── NWPU/
 │   └── JHU/
 ├── src/
-│   ├── data_loader.py             # multi-dataset crowd-counting data module
+│   ├── analyze_augmentation_distribution.py # script to diagnose dataset shifts
 │   ├── benchmark.py               # unified benchmark harness and experiment grid
+│   ├── data_loader.py             # multi-dataset crowd-counting data module
 │   ├── eval_baseline.py           # mean-count and zero-density baseline evaluation
 │   ├── metrics.py                 # pixelwise and count metrics
 │   ├── train.py                   # benchmark CLI entrypoint
@@ -60,6 +70,30 @@ Important details:
     ├── test_benchmark_config.py   # benchmark grid/configuration tests
     ├── test_data_loader_multi_dataset.py
     └── test_evaluator.py          # synthetic evaluator and density-resize tests
+```
+
+## Reproducibility
+
+To ensure strict adherence to modern public crowd-counting reproducibility standards (e.g., CLIP-EBC, STEERER), this repository guarantees exact reproducibility of the presented results, configurations, and evaluation environments.
+
+- **Fixed Seeds:** All experiments utilize a fixed global random seed (`42`) set via `pytorch_lightning.seed_everything` inside `src/benchmark.py`. This ensures reproducible data splitting, cropping, and model initialization.
+- **Preprocessing:** Density map generation is handled entirely on-the-fly inside `src/data_loader.py` using geometry-adaptive Gaussian kernels to map ground-truth coordinate points. Thus, offline preprocessing is not required.
+- **Figures:** Density map visualizations (like Figures 1, 2, and 3 from the paper) are logged automatically to Weights & Biases during the first batch of every validation epoch.
+- **Logs & Checkpoints:** When training via the reproducibility scripts, all model checkpoints are automatically exported to `models/checkpoints/` and detailed progress is tracked on Weights & Biases for easy artifact validation. 
+- **Exact Scripts:** We provide the exact execution commands as explicit shell scripts inside the `scripts/` directory:
+
+```bash
+# 1. Download/extract standard datasets
+./scripts/prepare_datasets.sh
+
+# 2. Run the unit test suite validating quantitative evaluation metrics
+./scripts/run_metric_tests.sh
+
+# 3. Train models and generate explicit logs/artifacts for Table 1 and visual figures
+./scripts/reproduce_table_1.sh
+
+# 4. Evaluate Zero/Mean baselines for Table 1
+./scripts/reproduce_baselines.sh
 ```
 
 ## Setup
@@ -175,89 +209,59 @@ data/NWPU/
 
 The loader accepts common annotation names and formats such as `GT_<image>.mat`, `<image>.mat`, `<image>_ann.mat`, `<image>.txt`, `<image>.csv`, and `<image>.json`. It looks for common point keys including `image_info`, `annPoints`, `points`, and `locations`. For multi-column text annotations such as JHU-CROWD++, the first two columns are interpreted as `(x, y)` point coordinates.
 
-## Running Experiments
+## Complete Experiment Overview
 
-Evaluate baselines:
+We have encapsulated all evaluation, baseline testing, ablation studies, and augmentation explorations into a set of sequential bash scripts. Running these scripts in order provides a complete and reproducible overview of all findings, including those detailed in the paper and additional generalized explorations.
 
+**1. Data Preparation**
+Download and extract the required datasets (e.g., UCF-QNRF). Follow manual download instructions for datasets behind web portals (e.g. ShanghaiTech) as described in the Setup section.
 ```bash
-python -m src.eval_baseline
+./scripts/prepare_datasets.sh
 ```
 
-Run unit tests:
-
+**2. Validate Metrics**
+Run the unit test suite to verify the mathematical correctness of quantitative metrics (Empty-Region FP Mass, Dense Region MSE, GAME).
 ```bash
-python -m unittest discover -s tests
+./scripts/run_metric_tests.sh
 ```
 
-Train the full experiment grid:
-
+**3. Evaluate Baselines**
+Reproduce the "Zeros" and "Mean" density baselines.
 ```bash
-python -m src.train
+./scripts/reproduce_baselines.sh
 ```
 
-Run a smaller controlled benchmark:
-
+**4. Reproduce Main Paper Results (Table 1)**
+Train and evaluate the core VGG19 and ResNet50 models across varying depths on ShanghaiTech Parts A and B. This command will log the resulting density map figures to Weights & Biases.
 ```bash
-python -m src.train --architectures resnet50_ae,vgg19_ae --depths 4 --splits A --no-wandb
+./scripts/reproduce_table_1.sh
 ```
 
-Run the three cleaner ablations separately:
-
+**5. Explore Architecture Ablations**
+Isolate and examine the specific impacts of receptive field, output resolution, and skip-connection placements using controlled ablations.
 ```bash
-python -m src.train --ablation receptive_field --architectures resnet50_ae --depths 2,3,4 --output-reductions 2 --splits A
-python -m src.train --ablation output_resolution --architectures vgg19_ae --depths 4 --output-reductions 1,2,4 --splits A
-python -m src.train --ablation skip_placement --architectures unet --depths 4 --output-reductions 2 --splits A
+./scripts/explore_ablations.sh
 ```
 
-Run on another dataset:
-
+**6. Explore Transfer Learning**
+Train a baseline model on internet scenes (ShanghaiTech Part A) and evaluate its zero-shot generalization capabilities on high-resolution, unconstrained crowds (UCF-QNRF).
 ```bash
-python -m src.train --dataset qnrf --data-folder ./data/UCF-QNRF --splits qnrf --architectures vgg19_ae --depths 4 --output-reductions 2
+./scripts/explore_transfer_learning.sh
 ```
 
-Run a transfer-style evaluation, training on ShanghaiTech Part A and testing on UCF-QNRF:
-
+**7. Diagnose Crop Augmentation**
+Analyze how naive random cropping causes severe distribution shifts (e.g. creating excessive empty patches), which leads to generalization failure. This script outputs distribution statistics and plots for UCF-QNRF.
 ```bash
-python -m src.train --dataset sha --data-folder ./data/ShanghaiTech --eval-dataset qnrf --eval-data-folder ./data/UCF-QNRF --splits sha_to_qnrf --architectures vgg19_ae --depths 4
+./scripts/explore_augmentation_diagnosis.sh
 ```
 
-Diagnose crop augmentation before training with it:
-
+**8. Train with Advanced Mixed Augmentation**
+Train on UCF-QNRF using the disciplined mixed augmentation strategy (combining full images with carefully balanced crops) designed to overcome the distribution shifts diagnosed in the previous step.
 ```bash
-python -m src.analyze_augmentation_distribution \
-  --data-folder ./data/UCF-QNRF \
-  --dataset qnrf \
-  --split train \
-  --max-images 150 \
-  --crops-per-image 2 \
-  --crop-size 256x256 \
-  --output-json ./outputs/augmentation_distribution_ucf_qnrf_train.json \
-  --plot-dir ./outputs/augmentation_distribution_ucf_qnrf_train_plots
+./scripts/explore_mixed_augmentation.sh
 ```
 
-The analyzer compares full images and sampled crops on count histogram, density occupancy, nearest-neighbor crowd-scale proxy, and empty/near-empty proportions. In the UCF-QNRF sample above, full images had no empty samples and a median count of 462.5, while 256x256 balanced crops had a median count of 4.0, 24.0% empty crops, and 42.7% near-empty crops. This is the distribution shift that made the earlier crop-only experiment fail.
-
-Train with the disciplined mixed augmentation recipe:
-
-```bash
-python -m src.train \
-  --dataset qnrf \
-  --data-folder ./data/UCF-QNRF \
-  --architectures vgg19_ae \
-  --depths 4 \
-  --splits qnrf_aug \
-  --use-crop-augmentation \
-  --crops-per-image 2 \
-  --full-image-probability 0.5 \
-  --crop-size 256x256 \
-  --scale-jitter 0.75,1.25 \
-  --horizontal-flip-probability 0.5 \
-  --photometric-jitter 0.15
-```
-
-All model variants in this entrypoint share the same preprocessing, optimizer, scheduler, callbacks, output resizing, metrics, and checkpoint policy. Output reduction is an explicit model hyperparameter. The architecture aliases currently supported by the repo are `resnet50_ae`, `vgg19_ae`, and `unet`.
-
-The training script logs to Weights & Biases and writes checkpoints under `models/checkpoints/`.
+*Note: All model variants in this pipeline share the same preprocessing, optimizer, scheduler, callbacks, output resizing, metrics, and checkpoint policy. The training scripts automatically log to Weights & Biases and write checkpoints under `models/checkpoints/`.*
 
 ## Notes
 
