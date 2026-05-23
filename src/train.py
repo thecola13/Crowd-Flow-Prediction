@@ -19,6 +19,20 @@ def parse_csv(value: str, cast=str):
     return tuple(cast(item.strip()) for item in value.split(",") if item.strip())
 
 
+def parse_size(value: str) -> tuple[int, int]:
+    parts = value.lower().replace("x", ",").split(",")
+    if len(parts) != 2:
+        raise argparse.ArgumentTypeError("Expected size as WIDTHxHEIGHT")
+    return int(parts[0]), int(parts[1])
+
+
+def parse_range(value: str) -> tuple[float, float]:
+    parts = parse_csv(value, float)
+    if parts is None or len(parts) != 2:
+        raise argparse.ArgumentTypeError("Expected range as MIN,MAX")
+    return parts
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the unified crowd-count benchmark.")
     parser.add_argument(
@@ -38,6 +52,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--eval-data-folder", default=None)
     parser.add_argument("--eval-dataset", default=None)
     parser.add_argument("--eval-split", default=None)
+    parser.add_argument("--use-crop-augmentation", action="store_true")
+    parser.add_argument("--crop-size", type=parse_size, default=(256, 256))
+    parser.add_argument("--crops-per-image", type=int, default=1)
+    parser.add_argument("--full-image-probability", type=float, default=0.5)
+    parser.add_argument("--scale-jitter", type=parse_range, default=(0.75, 1.25))
+    parser.add_argument("--horizontal-flip-probability", type=float, default=0.5)
+    parser.add_argument("--photometric-jitter", type=float, default=0.15)
+    parser.add_argument("--max-crop-resample-attempts", type=int, default=30)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--max-epochs", type=int, default=200)
@@ -70,6 +92,14 @@ def main():
             eval_data_folder=args.eval_data_folder,
             eval_dataset_name=args.eval_dataset,
             eval_split=args.eval_split,
+            use_crop_augmentation=args.use_crop_augmentation,
+            crop_size=args.crop_size,
+            crops_per_image=args.crops_per_image,
+            full_image_probability=args.full_image_probability,
+            scale_jitter=args.scale_jitter,
+            horizontal_flip_probability=args.horizontal_flip_probability,
+            photometric_jitter=args.photometric_jitter,
+            max_crop_resample_attempts=args.max_crop_resample_attempts,
             batch_size=args.batch_size,
             num_workers=args.num_workers,
         ),

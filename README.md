@@ -226,6 +226,40 @@ Run a transfer-style evaluation, training on ShanghaiTech Part A and testing on 
 python -m src.train --dataset sha --data-folder ./data/ShanghaiTech --eval-dataset qnrf --eval-data-folder ./data/UCF-QNRF --splits sha_to_qnrf --architectures vgg19_ae --depths 4
 ```
 
+Diagnose crop augmentation before training with it:
+
+```bash
+python -m src.analyze_augmentation_distribution \
+  --data-folder ./data/UCF-QNRF \
+  --dataset qnrf \
+  --split train \
+  --max-images 150 \
+  --crops-per-image 2 \
+  --crop-size 256x256 \
+  --output-json ./outputs/augmentation_distribution_ucf_qnrf_train.json \
+  --plot-dir ./outputs/augmentation_distribution_ucf_qnrf_train_plots
+```
+
+The analyzer compares full images and sampled crops on count histogram, density occupancy, nearest-neighbor crowd-scale proxy, and empty/near-empty proportions. In the UCF-QNRF sample above, full images had no empty samples and a median count of 462.5, while 256x256 balanced crops had a median count of 4.0, 24.0% empty crops, and 42.7% near-empty crops. This is the distribution shift that made the earlier crop-only experiment fail.
+
+Train with the disciplined mixed augmentation recipe:
+
+```bash
+python -m src.train \
+  --dataset qnrf \
+  --data-folder ./data/UCF-QNRF \
+  --architectures vgg19_ae \
+  --depths 4 \
+  --splits qnrf_aug \
+  --use-crop-augmentation \
+  --crops-per-image 2 \
+  --full-image-probability 0.5 \
+  --crop-size 256x256 \
+  --scale-jitter 0.75,1.25 \
+  --horizontal-flip-probability 0.5 \
+  --photometric-jitter 0.15
+```
+
 All model variants in this entrypoint share the same preprocessing, optimizer, scheduler, callbacks, output resizing, metrics, and checkpoint policy. Output reduction is an explicit model hyperparameter. The architecture aliases currently supported by the repo are `resnet50_ae`, `vgg19_ae`, and `unet`.
 
 The training script logs to Weights & Biases and writes checkpoints under `models/checkpoints/`.

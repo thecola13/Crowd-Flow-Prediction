@@ -89,6 +89,21 @@ class BenchmarkConfigTests(unittest.TestCase):
 
         self.assertIn("sha_to_qnrf", config.name)
 
+    def test_data_config_accepts_disciplined_crop_augmentation_knobs(self):
+        data = DataConfig(
+            use_crop_augmentation=True,
+            crop_size=(256, 256),
+            crops_per_image=2,
+            full_image_probability=0.5,
+            scale_jitter=(0.8, 1.2),
+            horizontal_flip_probability=0.5,
+            photometric_jitter=0.1,
+        )
+
+        self.assertTrue(data.use_crop_augmentation)
+        self.assertEqual(data.crop_size, (256, 256))
+        self.assertEqual(data.scale_jitter, (0.8, 1.2))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -21,6 +21,14 @@ class DataConfig:
     num_workers: int = 4
     input_size: tuple[int, int] = (384, 384)
     density_map_size: tuple[int, int] | None = None
+    use_crop_augmentation: bool = False
+    crop_size: tuple[int, int] = (256, 256)
+    crops_per_image: int = 1
+    full_image_probability: float = 0.5
+    scale_jitter: tuple[float, float] = (0.75, 1.25)
+    horizontal_flip_probability: float = 0.5
+    photometric_jitter: float = 0.15
+    max_crop_resample_attempts: int = 30
 
 
 @dataclass(frozen=True)
@@ -180,7 +188,7 @@ def make_skip_placement_ablation(
 
 
 def _make_data_module(config: ExperimentConfig, device):
-    from src.data_loader import CrowdCountingDataModule
+    from src.data_loader import CropAugmentationConfig, CrowdCountingDataModule
 
     data = config.data
     density_map_size = data.density_map_size
@@ -205,6 +213,16 @@ def _make_data_module(config: ExperimentConfig, device):
         input_size=data.input_size,
         density_map_size=density_map_size,
         device=device,
+        crop_augmentation=CropAugmentationConfig(
+            enabled=data.use_crop_augmentation,
+            crop_size=data.crop_size,
+            crops_per_image=data.crops_per_image,
+            full_image_probability=data.full_image_probability,
+            scale_jitter=data.scale_jitter,
+            horizontal_flip_probability=data.horizontal_flip_probability,
+            photometric_jitter=data.photometric_jitter,
+            max_crop_resample_attempts=data.max_crop_resample_attempts,
+        ),
     )
 
 
