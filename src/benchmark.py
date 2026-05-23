@@ -8,6 +8,12 @@ from typing import Any, Iterable
 @dataclass(frozen=True)
 class DataConfig:
     data_folder: str = "./data/ShanghaiTech"
+    dataset_name: str = "sha"
+    train_split: str = "train"
+    test_split: str = "test"
+    eval_data_folder: str | None = None
+    eval_dataset_name: str | None = None
+    eval_split: str | None = None
     validation_split: float = 0.1
     seed: int = 42
     sigma: float = 5.0
@@ -77,7 +83,11 @@ class ExperimentConfig:
 
     @property
     def name(self) -> str:
-        return f"{self.model.name}_split_{self.split}"
+        eval_name = self.data.eval_dataset_name or self.data.dataset_name
+        dataset_label = self.data.dataset_name
+        if eval_name != dataset_label:
+            dataset_label = f"{dataset_label}_to_{eval_name}"
+        return f"{self.model.name}_{dataset_label}_split_{self.split}"
 
 
 def make_experiment_grid(
@@ -170,7 +180,7 @@ def make_skip_placement_ablation(
 
 
 def _make_data_module(config: ExperimentConfig, device):
-    from src.data_loader import ShanghaiTechDataModule
+    from src.data_loader import CrowdCountingDataModule
 
     data = config.data
     density_map_size = data.density_map_size
@@ -178,9 +188,14 @@ def _make_data_module(config: ExperimentConfig, device):
         reduction = config.model.output_reduction
         density_map_size = tuple(dim // reduction for dim in data.input_size)
 
-    return ShanghaiTechDataModule(
+    return CrowdCountingDataModule(
         data_folder=data.data_folder,
-        part=f"part_{config.split}",
+        dataset_name=data.dataset_name,
+        train_split=data.train_split,
+        test_split=data.test_split,
+        eval_data_folder=data.eval_data_folder,
+        eval_dataset_name=data.eval_dataset_name,
+        eval_split=data.eval_split,
         validation_split=data.validation_split,
         seed=data.seed,
         sigma=data.sigma,
@@ -207,6 +222,8 @@ def _make_logger(config: ExperimentConfig):
             f"depth_{config.model.depth}",
             f"out_{config.model.output_reduction}",
             f"skip_{config.model.skip_placement}",
+            f"train_{config.data.dataset_name}",
+            f"eval_{config.data.eval_dataset_name or config.data.dataset_name}",
             f"split_{config.split}",
         ],
     )

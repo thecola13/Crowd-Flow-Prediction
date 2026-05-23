@@ -32,6 +32,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--skip-placements", default="after_pool")
     parser.add_argument("--splits", default="A,B")
     parser.add_argument("--data-folder", default="./data/ShanghaiTech")
+    parser.add_argument("--dataset", default="sha")
+    parser.add_argument("--train-split", default="train")
+    parser.add_argument("--test-split", default="test")
+    parser.add_argument("--eval-data-folder", default=None)
+    parser.add_argument("--eval-dataset", default=None)
+    parser.add_argument("--eval-split", default=None)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--max-epochs", type=int, default=200)
@@ -58,6 +64,12 @@ def main():
     shared = dict(
         data=DataConfig(
             data_folder=args.data_folder,
+            dataset_name=args.dataset,
+            train_split=args.train_split,
+            test_split=args.test_split,
+            eval_data_folder=args.eval_data_folder,
+            eval_dataset_name=args.eval_dataset,
+            eval_split=args.eval_split,
             batch_size=args.batch_size,
             num_workers=args.num_workers,
         ),

@@ -118,16 +118,16 @@ def evaluate_baselines(
 if __name__ == "__main__":
     import torch
 
-    from src.data_loader import ShanghaiTechDataModule
+    from src.data_loader import CrowdCountingDataModule
     from src.utils import get_device
 
     # Initialize device
     device = get_device()
 
     # Load the data
-    data_module = ShanghaiTechDataModule(
+    data_module = CrowdCountingDataModule(
         data_folder="./data/ShanghaiTech",
-        part="part_A",
+        dataset_name="sha",
         validation_split=0.1,
         sigma=5,
         return_count=False,

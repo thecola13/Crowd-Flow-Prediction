@@ -1,6 +1,9 @@
 import unittest
 
 from src.benchmark import (
+    DataConfig,
+    ExperimentConfig,
+    ModelSpec,
     make_experiment_grid,
     make_output_resolution_ablation,
     make_receptive_field_ablation,
@@ -19,10 +22,10 @@ class BenchmarkConfigTests(unittest.TestCase):
         self.assertEqual(
             [config.name for config in configs],
             [
-                "resnet50_ae_depth2_out2_skip-after_pool_split_A",
-                "resnet50_ae_depth4_out2_skip-after_pool_split_A",
-                "vgg19_ae_depth2_out2_skip-after_pool_split_A",
-                "vgg19_ae_depth4_out2_skip-after_pool_split_A",
+                "resnet50_ae_depth2_out2_skip-after_pool_sha_split_A",
+                "resnet50_ae_depth4_out2_skip-after_pool_sha_split_A",
+                "vgg19_ae_depth2_out2_skip-after_pool_sha_split_A",
+                "vgg19_ae_depth4_out2_skip-after_pool_sha_split_A",
             ],
         )
         self.assertEqual({config.data for config in configs}, {configs[0].data})
@@ -71,6 +74,20 @@ class BenchmarkConfigTests(unittest.TestCase):
         self.assertEqual({config.model.architecture for config in configs}, {"unet"})
         self.assertEqual({config.model.depth for config in configs}, {4})
         self.assertEqual({config.model.output_reduction for config in configs}, {2})
+
+    def test_experiment_name_marks_cross_dataset_transfer(self):
+        config = ExperimentConfig(
+            model=ModelSpec("vgg19_ae", depth=4, output_reduction=2),
+            split="A",
+            data=DataConfig(
+                dataset_name="sha",
+                data_folder="./data/ShanghaiTech",
+                eval_dataset_name="qnrf",
+                eval_data_folder="./data/UCF-QNRF",
+            ),
+        )
+
+        self.assertIn("sha_to_qnrf", config.name)
 
 
 if __name__ == "__main__":
