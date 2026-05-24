@@ -20,16 +20,7 @@ This repository contains a PyTorch/PyTorch Lightning project for crowd counting 
 - The dataset interface targets ShanghaiTech Part A/B and UCF-QNRF point annotation datasets.
 - The primary model families are pretrained ResNet50 and VGG19-BN encoders adapted into U-Net-like encoder-decoder networks.
 - The benchmark can split depth/receptive-field, output-resolution, and skip-placement ablations instead of changing them together.
-- Evaluation includes rigorous quantitative metrics replacing narrative heatmap interpretations:
-  - **Density-Stratified Errors**: Errors are stratified by density regime (low, medium, high) to account for scene statistics differences.
-  - **Empty-Region False-Positive Mass**: Measures hallucinations in zero-density patches to quantitatively test models (e.g., ResNet) on low-density scenes.
-  - **Dense-Region MSE & GAME**: Measures patchwise error around annotations and Grid Average Mean Absolute Error to quantitatively test peak preservation (e.g., VGG) on dense subsets.
 - Baselines include a mean-count density predictor and an all-zero density predictor.
-
-Important details:
-
-- `src/utils.py` currently uses a fixed Gaussian `sigma`.
-- The implemented ResNet/VGG models output half-resolution density maps when the input is `384x384` and the density target is `192x192`.
 
 ## Repository Structure
 
@@ -49,6 +40,9 @@ Important details:
 ├── data/                          # expected local dataset roots, not committed
 │   ├── ShanghaiTech/
 │   └── UCF-QNRF/
+├── notebooks/                     # Jupyter notebooks for Exploratory Data Analysis (EDA)
+│   ├── ShanghaiTech_EDA.ipynb
+│   └── UCF_QNRF_EDA.ipynb
 ├── src/
 │   ├── analyze_augmentation_distribution.py # script to diagnose dataset shifts
 │   ├── benchmark.py               # unified benchmark harness and experiment grid
@@ -76,23 +70,9 @@ To ensure strict adherence to modern public crowd-counting reproducibility stand
 
 - **Fixed Seeds:** All experiments utilize a fixed global random seed (`42`) set via `pytorch_lightning.seed_everything` inside `src/benchmark.py`. This ensures reproducible data splitting, cropping, and model initialization.
 - **Preprocessing:** Density map generation is handled entirely on-the-fly inside `src/data_loader.py` using geometry-adaptive Gaussian kernels to map ground-truth coordinate points. Thus, offline preprocessing is not required.
-- **Figures:** Density map visualizations (like Figures 1, 2, and 3 from the paper) are logged automatically to Weights & Biases during the first batch of every validation epoch.
+- **Figures:** Density map visualizations are logged automatically to Weights & Biases during the first batch of every validation epoch.
 - **Logs & Checkpoints:** When training via the reproducibility scripts, all model checkpoints are automatically exported to `models/checkpoints/` and detailed progress is tracked on Weights & Biases for easy artifact validation. 
 - **Exact Scripts:** We provide the exact execution commands as explicit shell scripts inside the `scripts/` directory:
-
-```bash
-# 1. Download/extract standard datasets
-./scripts/prepare_datasets.sh
-
-# 2. Run the unit test suite validating quantitative evaluation metrics
-./scripts/run_metric_tests.sh
-
-# 3. Train models and generate explicit logs/artifacts for Table 1 and visual figures
-./scripts/reproduce_table_1.sh
-
-# 4. Evaluate Zero/Mean baselines for Table 1
-./scripts/reproduce_baselines.sh
-```
 
 ## Setup
 
@@ -247,10 +227,3 @@ Train on UCF-QNRF using the disciplined mixed augmentation strategy (combining f
 ```
 
 *Note: All model variants in this pipeline share the same preprocessing, optimizer, scheduler, callbacks, output resizing, metrics, and checkpoint policy. The training scripts automatically log to Weights & Biases and write checkpoints under `models/checkpoints/`.*
-
-## Notes
-
-- Default image size is `384x384`; density-map size is derived from `output_reduction` unless explicitly overridden, so the default reduction of `2` gives `192x192` targets.
-- Counts are computed as the spatial sum of the density map.
-- The current train/validation split is random within `train_data`, controlled by a fixed seed.
-- Generated outputs, checkpoints, and local datasets should stay out of version control.
