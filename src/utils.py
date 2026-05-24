@@ -9,8 +9,14 @@ from scipy.ndimage import gaussian_filter
 def get_device():
     # Device selection
     if torch.cuda.is_available():
-        device = torch.device("cuda")
-        print(f"Using CUDA: {torch.cuda.get_device_name(0)}")
+        try:
+            # Test if a CUDA device can actually be initialized
+            device_name = torch.cuda.get_device_name(0)
+            device = torch.device("cuda")
+            print(f"Using CUDA: {device_name}")
+        except Exception as e:
+            device = torch.device("cpu")
+            print(f"CUDA is available but failed to initialize device: {e}. Falling back to CPU.")
     elif torch.backends.mps.is_available():
         device = torch.device("mps")
         print("Using Apple MPS")

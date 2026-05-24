@@ -19,3 +19,6 @@ models/
 results/
 sbatch/
 environment.yml
+out/
+err/
+scratch/
