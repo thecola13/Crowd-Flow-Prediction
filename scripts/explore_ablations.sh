@@ -52,11 +52,11 @@ $PYTHON_EXE -m src.train \
     --dataset qnrf \
     --data-folder ./data/UCF-QNRF
 
-echo "3. Skip Placement Ablation (vgg19_ae, Before/After Pool)"
+echo "3. Skip Placement Ablation (unet, Before/After Pool)"
 echo "=> Running on ShanghaiTech Part A"
 $PYTHON_EXE -m src.train \
     --ablation skip_placement \
-    --architectures vgg19_ae \
+    --architectures unet \
     --depths 4 \
     --output-reductions 2 \
     --splits A \
@@ -66,7 +66,7 @@ $PYTHON_EXE -m src.train \
 echo "=> Running on UCF-QNRF"
 $PYTHON_EXE -m src.train \
     --ablation skip_placement \
-    --architectures vgg19_ae \
+    --architectures unet \
     --depths 4 \
     --output-reductions 2 \
     --splits qnrf \
