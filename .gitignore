@@ -8,6 +8,8 @@ data/
 *.pt
 *.ckpt
 *.npy
+*.png
+*.csv
 
 wandb
 outputs/
