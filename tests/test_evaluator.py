@@ -32,6 +32,7 @@ class EvaluatorTests(unittest.TestCase):
         self.assertAlmostEqual(count_rmse, 3.0)
         self.assertAlmostEqual(pixel_mae, 3.0 / 4.0)
         self.assertAlmostEqual(pixel_rmse, math.sqrt(9.0 / 4.0))
+        self.assertAlmostEqual(empty_fp, 0.0)
 
     def test_zero_baseline_metrics_are_analytically_known(self):
         density_maps = torch.tensor(
@@ -46,12 +47,13 @@ class EvaluatorTests(unittest.TestCase):
         results = evaluate_baselines(
             loader, torch.device("cpu"), n_pixels=4, print_results=False
         )
-        count_mae, count_rmse, pixel_mae, pixel_rmse = results["zeros"]
+        count_mae, count_rmse, pixel_mae, pixel_rmse, game_3, empty_fp = results["zeros"]
 
         self.assertAlmostEqual(count_mae, 2.0)
         self.assertAlmostEqual(count_rmse, math.sqrt(5.0))
         self.assertAlmostEqual(pixel_mae, 4.0 / 8.0)
         self.assertAlmostEqual(pixel_rmse, math.sqrt(6.0 / 8.0))
+        self.assertAlmostEqual(empty_fp, 0.0)
 
     def test_mean_baseline_metrics_are_analytically_known(self):
         density_maps = torch.tensor(
@@ -66,12 +68,13 @@ class EvaluatorTests(unittest.TestCase):
         results = evaluate_baselines(
             loader, torch.device("cpu"), n_pixels=4, print_results=False
         )
-        count_mae, count_rmse, pixel_mae, pixel_rmse = results["mean_count"]
+        count_mae, count_rmse, pixel_mae, pixel_rmse, game_3, empty_fp = results["mean_count"]
 
         self.assertAlmostEqual(count_mae, 1.0)
         self.assertAlmostEqual(count_rmse, 1.0)
         self.assertAlmostEqual(pixel_mae, 5.0 / 8.0)
         self.assertAlmostEqual(pixel_rmse, math.sqrt(4.0 / 8.0))
+        self.assertAlmostEqual(empty_fp, 0.0)
 
     def test_metrics_are_weighted_correctly_with_uneven_batches(self):
         density_maps = torch.tensor(
@@ -90,11 +93,12 @@ class EvaluatorTests(unittest.TestCase):
             baseline_fn=lambda gt: torch.zeros_like(gt),
         )
 
-        count_mae, count_rmse, pixel_mae, pixel_rmse = metrics
+        count_mae, count_rmse, pixel_mae, pixel_rmse, game_3, empty_fp = metrics
         self.assertAlmostEqual(count_mae, 5.0 / 3.0)
         self.assertAlmostEqual(count_rmse, math.sqrt(17.0 / 3.0))
         self.assertAlmostEqual(pixel_mae, 5.0 / 12.0)
         self.assertAlmostEqual(pixel_rmse, math.sqrt(17.0 / 12.0))
+        self.assertAlmostEqual(empty_fp, 0.0)
 
 
 class DensityResizeTests(unittest.TestCase):

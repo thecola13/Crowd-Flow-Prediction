@@ -8,6 +8,8 @@ from src.metrics import (
     pixelwise_mae,
     pixelwise_mse,
     spatial_count,
+    game,
+    empty_region_fp_mass,
 )
 
 
@@ -15,17 +17,19 @@ def compute_baseline_metrics(
     dt_loader: torch.utils.data.DataLoader,
     device: torch.device,
     baseline_fn: Callable[[torch.Tensor], torch.Tensor],
-) -> Tuple[float, float, float, float]:
+) -> Tuple[float, float, float, float, float, float]:
     """
-    Compute count and pixel metrics for a density-map baseline.
+    Compute count and pixel metrics for a density-map baseline, including GAME(3) and Empty-FP.
 
-    Count MAE/RMSE are averaged over samples. Pixel MAE/RMSE are computed
+    Count MAE/RMSE, GAME(3), and Empty-FP are averaged over samples. Pixel MAE/RMSE are computed
     globally over all pixels, so uneven final batch sizes cannot skew results.
     """
     total_mae = 0.0
     total_mse = 0.0
     total_pixel_abs = 0.0
     total_pixel_sq = 0.0
+    total_game_3 = 0.0
+    total_empty_fp = 0.0
 
     total_samples = 0
     total_pixels = 0
@@ -45,10 +49,16 @@ def compute_baseline_metrics(
             pixel_abs = pixelwise_mae(pred_density, gt_density, reduction="sum").item()
             pixel_sq = pixelwise_mse(pred_density, gt_density, reduction="sum").item()
 
+            # Spatial and localized metrics
+            batch_game_3 = game(pred_density, gt_density, 3).item() * batch_size
+            batch_empty_fp = empty_region_fp_mass(pred_density, gt_density).item() * batch_size
+
             total_mae += batch_mae
             total_mse += batch_mse
             total_pixel_abs += pixel_abs
             total_pixel_sq += pixel_sq
+            total_game_3 += batch_game_3
+            total_empty_fp += batch_empty_fp
             total_pixels += gt_density.numel()
 
     if total_samples == 0:
@@ -58,7 +68,9 @@ def compute_baseline_metrics(
     rmse = (total_mse / total_samples) ** 0.5
     pixel_mae = total_pixel_abs / total_pixels
     pixel_rmse = (total_pixel_sq / total_pixels) ** 0.5
-    return mae, rmse, pixel_mae, pixel_rmse
+    game_3 = total_game_3 / total_samples
+    empty_fp = total_empty_fp / total_samples
+    return mae, rmse, pixel_mae, pixel_rmse, game_3, empty_fp
 
 
 def evaluate_baselines(
@@ -66,11 +78,11 @@ def evaluate_baselines(
     device: torch.device,
     n_pixels: Optional[int] = None,
     print_results: bool = True,
-) -> Dict[str, Tuple[float, float, float, float]]:
+) -> Dict[str, Tuple[float, float, float, float, float, float]]:
     """
     Evaluate a set of baseline predictors in one shot.
     Returns a dict mapping baseline name to:
-    (count MAE, count RMSE, pixel MAE, pixel RMSE).
+    (count MAE, count RMSE, pixel MAE, pixel RMSE, GAME(3), Empty-FP).
     """
     # 1) Compute the average count per image over the entire set
     total_count = 0.0
@@ -102,14 +114,15 @@ def evaluate_baselines(
     # 3) Compute and print metrics for each
     results = {}
     for name, fn in baselines.items():
-        mae, rmse, pixel_mae, pixel_rmse = compute_baseline_metrics(
+        mae, rmse, pixel_mae, pixel_rmse, game_3, empty_fp = compute_baseline_metrics(
             data_loader, device, fn
         )
-        results[name] = (mae, rmse, pixel_mae, pixel_rmse)
+        results[name] = (mae, rmse, pixel_mae, pixel_rmse, game_3, empty_fp)
         if print_results:
             print(
                 f"{name:10s}: Count MAE = {mae:.3f}, Count RMSE = {rmse:.6f}, "
-                f"Pixel MAE = {pixel_mae:.6f}, Pixel RMSE = {pixel_rmse:.6f}"
+                f"Pixel MAE = {pixel_mae:.6f}, Pixel RMSE = {pixel_rmse:.6f}, "
+                f"GAME(3) = {game_3:.3f}, Empty-FP = {empty_fp:.6f}"
             )
 
     return results
